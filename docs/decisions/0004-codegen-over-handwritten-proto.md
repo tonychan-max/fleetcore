@@ -32,7 +32,7 @@ ECU が数百・サプライヤが数十社という規模では人力照合が�
 
 ```yaml
 protocol:
-  name: mini-lock
+  name: fleetcore
   version: 1
   endian: big
 
@@ -73,7 +73,7 @@ messages:
 
 ```
 tools/codegen/schema/
-├── minilock.yaml      ← 自分のプロトコル
+├── fleetcore.yaml      ← 自分のプロトコル
 └── sample_can.yaml    ← 簡略 CAN フレーム群
 ```
 

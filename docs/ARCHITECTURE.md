@@ -1,8 +1,8 @@
-# mini-lock アーキテクチャ
+# fleetcore アーキテクチャ
 
 > このドキュメントは **repo の記憶** である。
 > 新しい対話・数か月後の自分・他人がこれ1枚を読めば全体像に復帰できることを目的とする。
-> 詳細な計画・ロードマップは `mini-lock_プロジェクト計画_v2.md`、
+> 詳細な計画・ロードマップは `fleetcore_プロジェクト計画_v2.md`、
 > 個々の設計判断の理由は `docs/decisions/` を参照。
 
 ---
@@ -130,7 +130,7 @@ TCP はバイトストリームなので、複数スレッドが同時に書く�
 ```cpp
 #pragma pack(push, 1)
 struct Header {
-    uint8_t  magic[2];   // 'M','L' — 同期・誤接続検出
+    uint8_t  magic[2];   // 'F','C' — 同期・誤接続検出
     uint8_t  version;    // プロトコル版数
     uint8_t  code;       // 電文種別
     uint16_t length;     // ヘッダ含む全長。未知電文の読み飛ばしに必須
@@ -213,7 +213,7 @@ constexpr uint32_t CAP_NAVIGATION = 1u << 2;  // Phase 6
 ## 7. ディレクトリ構成
 
 ```
-mini-lock/
+fleetcore/
 ├── README.md
 ├── CMakeLists.txt
 ├── docs/
@@ -229,7 +229,7 @@ mini-lock/
 ├── term_sim/                  ← Phase 5
 ├── tools/codegen/             ← Phase 3
 ├── config/
-│   ├── mini-lock.toml
+│   ├── fleetcore.toml
 │   ├── forward.toml
 │   └── scenarios/
 └── tests/

@@ -13,11 +13,11 @@
 - 運用担当者は、設定を変えたあと何をすれば反映されるのか判断できない
 - セクション名を間違えても誰も気づかない（既定値で動いてしまうため）
 
-実務でこの状態を経験したため、mini-lock では最初から台帳を持つ。
+実務でこの状態を経験したため、fleetcore では最初から台帳を持つ。
 
 ## 方針
 
-- 設定ファイルは **1つ**（`config/mini-lock.toml`）。プロセスごとにセクションを切る
+- 設定ファイルは **1つ**（`config/fleetcore.toml`）。プロセスごとにセクションを切る
 - 例外は**データ駆動の表**（`config/forward.toml`、`config/scenarios/*.yaml`）。これらは設定ではなく定義
 - 既定値は**コード側に持つ**。設定ファイルが無くても起動できること
 - 反映条件は次の4種類のいずれか
@@ -37,15 +37,15 @@
 |---|---|---|---|---|---|---|
 | `listen_port` | `[gateway]` | 9100 | gateway | 起動時1回 | プロセス再起動 | 保守端末からの受付ポート |
 | `send_queue_size` | `[gateway]` | 256 | gateway | 起動時1回 | プロセス再起動 | 送信キュー長。溢れたら古いものから破棄 |
-| `shm_key` | `[common]` | 0x4D4C0001 | gateway/locator/termd | 起動時1回 | プロセス再起動 | 端末テーブル共有メモリキー |
+| `shm_key` | `[common]` | 0x46430001 | gateway/locator/termd | 起動時1回 | プロセス再起動 | 端末テーブル共有メモリキー |
 | `max_terminals` | `[common]` | 64 | gateway/locator/termd | 起動時1回 | プロセス再起動 | 端末テーブルの要素数。変更時は全プロセス再起動 |
-| `msgq_key_base` | `[common]` | 0x4D4C1000 | gateway/locator/termd | 起動時1回 | プロセス再起動 | メッセージキーの基点 |
+| `msgq_key_base` | `[common]` | 0x46431000 | gateway/locator/termd | 起動時1回 | プロセス再起動 | メッセージキーの基点 |
 | `heartbeat_sec` | `[termd]` | 30 | termd | 起動時1回 | プロセス再起動 | 死活監視間隔 |
 | `offline_hold_max` | `[termd]` | 100 | termd | 起動時1回 | プロセス再起動 | store-and-forward の保持上限（Phase 4） |
-| `db_path` | `[auth]` | `./mini-lock.db` | term_gui | 起動時1回 | プロセス再起動 | 認証 DB のパス |
+| `db_path` | `[auth]` | `./fleetcore.db` | term_gui | 起動時1回 | プロセス再起動 | 認証 DB のパス |
 | `kdf_memory_kb` | `[auth]` | 65536 | term_gui | 起動時1回 | プロセス再起動 | パスワードハッシュのメモリパラメータ（ADR-0002） |
 | `kdf_iterations` | `[auth]` | 3 | term_gui | 起動時1回 | プロセス再起動 | 同上、反復回数 |
-| `socket_path` | `[term_ipc]` | `/tmp/mini-lock/` | term_* | 起動時1回 | プロセス再起動 | QLocalSocket の接続先（ADR-0001、Phase 2） |
+| `socket_path` | `[term_ipc]` | `/tmp/fleetcore/` | term_* | 起動時1回 | プロセス再起動 | QLocalSocket の接続先（ADR-0001、Phase 2） |
 | `forward_table` | `[term_ipc]` | `config/forward.toml` | term_router | 起動時1回 | プロセス再起動 | 転送表のパス（Phase 2） |
 | `log_level` | `[log]` | `info` | 全プロセス | **使用のたび** | **即時** | ログ出力レベル。稼働中に変更可能 |
 | `trace_message` | `[log]` | `false` | term_router | **使用のたび** | **即時** | 電文トレース。ADR-0001 の代償に対する対策 |
