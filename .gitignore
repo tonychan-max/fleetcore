@@ -1,0 +1,25 @@
+# build
+build/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+*.o
+*.a
+*.so
+
+# database (ADR-0002)
+*.db
+*.db-journal
+
+# secrets: API キー等は環境変数から読む
+.env
+*.key
+
+# editor
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
