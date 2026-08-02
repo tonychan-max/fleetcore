@@ -241,7 +241,7 @@ fleetcore/
 
 | Phase | 状態 |
 |---|---|
-| 1　骨格（CLI → GUI） | 未着手 |
+| 1　骨格（CLI → GUI） |  **進行中**（Step 1 完了：`proto.h` + `static_assert` + `layout_dump`） |
 | 2　端末内部の多プロセス化 | 未着手 |
 | 3　契約の自動化（codegen） | 未着手 |
 | 4　上り + store-and-forward | 未着手 |
