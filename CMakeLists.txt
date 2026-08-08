@@ -13,15 +13,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # would silently break that and we would only find out much later.
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# ---- common: the single source of truth for the wire contract ----
-# Header-only for now. Switch to STATIC once implementation files exist (Step 2).
-add_library(fc_common INTERFACE)
+# ---- common: the wire contract plus the OS primitives it rides on ----
+# Now has implementation files, so it is a real static library.
+add_library(fc_common STATIC
+    common/wire.cpp
+    common/msgq.cpp
+)
 
-target_include_directories(fc_common INTERFACE
+target_include_directories(fc_common PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_compile_options(fc_common INTERFACE
+target_compile_options(fc_common PRIVATE
     $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra>
     $<$<CXX_COMPILER_ID:MSVC>:/W4>
 )
@@ -30,3 +33,7 @@ target_compile_options(fc_common INTERFACE
 # Not a throwaway script. Re-run it whenever a field is added.
 add_executable(layout_dump common/layout_dump.cpp)
 target_link_libraries(layout_dump PRIVATE fc_common)
+
+# ---- msggen: produces a real byte stream for testing ----
+add_executable(msggen tools/msggen/main.cpp)
+target_link_libraries(msggen PRIVATE fc_common)
