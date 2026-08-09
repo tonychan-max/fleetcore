@@ -121,6 +121,22 @@ TCP はバイトストリームなので、複数スレッドが同時に書く�
 
 `docs/CONFIG.md` が唯一の台帳。**「反映条件」列は空欄禁止**。
 
+### 3-9. エラーの影響範囲を型で表す
+
+**「エラーが起きたか」ではなく「どこまで壊れたか」で分類する。**
+
+| Severity | 意味 | 制御 |
+|---|---|---|
+| `Message` | この電文だけが不正。次の電文へ | `continue` |
+| `Stream` | バイト列が同期を失った。以降解析不能 | `break` |
+| `Peer` | 特定の端末が不達。他端末は継続 | 記録して継続 |
+| `Process` | 継続不能。終了して supervisor に委ねる | `return 1` |
+
+等級はログにも出力する。`continue` か `break` かというコードの形からではなく、
+**名前から回復戦略が読める**ようにするため。
+
+詳細は ADR-0009。
+
 ---
 
 ## 4. 契約（プロトコル）
@@ -163,9 +179,11 @@ static_assert(offsetof(Header, length) == 4, "length の位置");
 
 ### 4-3. エンディアン
 
-**ネットワークバイトオーダ（big-endian）** で統一。
-`pack`/`unpack` 関数の中でのみ変換し、構造体はホスト表現を持たない
-（Phase 3 以降は生成物が担保する）。
+**ワイヤ上は big-endian（ネットワークバイトオーダ）で統一する。**
+
+構造体はホストのバイトオーダで値を持つ。変換は `pack()` / `unpack()` の中だけで行い、
+それ以外の場所にバイトオーダの知識を漏らさない。
+（Phase 3 以降はこの変換も生成物が担保する）。
 
 ---
 
@@ -241,7 +259,7 @@ fleetcore/
 
 | Phase | 状態 |
 |---|---|
-| 1　骨格（CLI → GUI） |  **進行中**（Step 1 完了：`proto.h` + `static_assert` + `layout_dump`） |
+| 1　骨格（CLI → GUI） | **進行中**（Step 1〜2 完了：契約定義、3プロセス貫通、プロセス基底クラス） |
 | 2　端末内部の多プロセス化 | 未着手 |
 | 3　契約の自動化（codegen） | 未着手 |
 | 4　上り + store-and-forward | 未着手 |
@@ -262,3 +280,6 @@ fleetcore/
 | [0004](decisions/0004-codegen-over-handwritten-proto.md) | 電文定義をコード生成に置き換える | 提案 |
 | [0005](decisions/0005-route-provider-abstraction.md) | 外部経路探索サービスを抽象化する | 提案 |
 | [0006](decisions/0006-drop-policy-per-message.md) | 再送方針を電文定義に持たせる | 提案 |
+| [0007](decisions/0007-msgq-per-process.md) | メッセージキューをプロセスごとに1本持つ | 採用 |
+| [0008](decisions/0008-memcpy-based-pack-unpack.md) | pack/unpack は一括 memcpy + 項目単位変換 | 採用 |
+| [0009](decisions/0009-error-handling-style.md) | エラー処理は二層構成 | 採用 |

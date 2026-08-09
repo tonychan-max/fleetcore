@@ -11,6 +11,10 @@ namespace fleetcore {
 inline constexpr uint8_t MAGIC0        = 'F';
 inline constexpr uint8_t MAGIC1        = 'C';
 inline constexpr uint8_t PROTO_VERSION = 1;
+// Upper bound for a single message. A length field larger than this is
+// treated as garbage rather than as a huge allocation request -- the peer
+// may be malicious or simply out of sync.
+inline constexpr uint16_t MAX_MESSAGE_LEN = 1024;
 
 // ============================================================
 // Message code space (see docs/ARCHITECTURE.md section 4-2)
