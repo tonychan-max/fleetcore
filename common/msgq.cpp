@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <utility>
+#include <ctime>
 
 namespace fleetcore {
 
@@ -90,6 +91,46 @@ long MsgQueue::recv(void* out, std::size_t cap) {
 
     std::memcpy(out, m.mtext, static_cast<std::size_t>(n));
     return n;
+}
+
+MsgQueue::RecvResult MsgQueue::recv_timeout(void* out, std::size_t cap,
+                                            int timeout_ms, long* out_len) {
+    if (id_ < 0) return RecvResult::Error;
+
+    // System V message queues have no timeout parameter. IPC_NOWAIT returns
+    // immediately with ENOMSG when the queue is empty, so poll in short
+    // slices until the deadline. Crude, but it keeps the process responsive
+    // to shutdown requests without pulling in another mechanism.
+    constexpr int SLICE_MS = 50;
+    int waited = 0;
+
+    for (;;) {
+        RawMessage m{};
+        const ssize_t n = msgrcv(id_, &m, sizeof(m.mtext), 0, IPC_NOWAIT);
+
+        if (n >= 0) {
+            if (static_cast<std::size_t>(n) > cap) return RecvResult::Error;
+            std::memcpy(out, m.mtext, static_cast<std::size_t>(n));
+            if (out_len) *out_len = n;
+            return RecvResult::Ok;
+        }
+
+        if (errno == ENOMSG) {
+            if (waited >= timeout_ms) return RecvResult::Timeout;
+            struct timespec ts{};
+            ts.tv_sec  = 0;
+            ts.tv_nsec = SLICE_MS * 1000L * 1000L;
+            nanosleep(&ts, nullptr);
+            waited += SLICE_MS;
+            continue;
+        }
+
+        // Interrupted by a signal: not a failure, just try again.
+        if (errno == EINTR) continue;
+
+        std::fprintf(stderr, "msgrcv failed: %s\n", std::strerror(errno));
+        return RecvResult::Error;
+    }
 }
 
 }  // namespace fleetcore

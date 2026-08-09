@@ -40,6 +40,7 @@
 | `shm_key` | `[common]` | 0x46430001 | gateway/locator/termd | 起動時1回 | プロセス再起動 | 端末テーブル共有メモリキー |
 | `max_terminals` | `[common]` | 64 | gateway/locator/termd | 起動時1回 | プロセス再起動 | 端末テーブルの要素数。変更時は全プロセス再起動 |
 | `msgq_key_base` | `[common]` | 0x46431000 | gateway/locator/termd | 起動時1回 | プロセス再起動 | メッセージキーの基点 |
+| `mq_recv_timeout_ms` | `[common]` | 200 | 全業務プロセス | 起動時1回 | プロセス再起動 | メッセージ受信のタイムアウト。終了フラグの確認間隔でもある |
 | `heartbeat_sec` | `[termd]` | 30 | termd | 起動時1回 | プロセス再起動 | 死活監視間隔 |
 | `offline_hold_max` | `[termd]` | 100 | termd | 起動時1回 | プロセス再起動 | store-and-forward の保持上限（Phase 4） |
 | `db_path` | `[auth]` | `./fleetcore.db` | term_gui | 起動時1回 | プロセス再起動 | 認証 DB のパス |
@@ -63,3 +64,4 @@
 | 日付 | 内容 |
 |---|---|
 | 2026-08 | 初版。Phase 1 分を確定、Phase 2〜6 分は予定として記載 |
+| 2026-08 | Step 2：`mq_recv_timeout_ms` を追加。プロセス基底クラス導入に伴う |

@@ -18,6 +18,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_library(fc_common STATIC
     common/wire.cpp
     common/msgq.cpp
+    common/process.cpp
 )
 
 target_include_directories(fc_common PUBLIC
@@ -37,3 +38,13 @@ target_link_libraries(layout_dump PRIVATE fc_common)
 # ---- msggen: produces a real byte stream for testing ----
 add_executable(msggen tools/msggen/main.cpp)
 target_link_libraries(msggen PRIVATE fc_common)
+
+# ---- business processes (ARCHITECTURE section 3-2) ----
+add_executable(gateway gateway/main.cpp)
+target_link_libraries(gateway PRIVATE fc_common)
+
+add_executable(locator locator/main.cpp)
+target_link_libraries(locator PRIVATE fc_common)
+
+add_executable(termd termd/main.cpp)
+target_link_libraries(termd PRIVATE fc_common)

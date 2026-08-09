@@ -44,6 +44,22 @@ public:
     // Blocks until a message arrives. Returns bytes received, or -1 on error.
     long recv(void* out, std::size_t cap);
 
+    // Return value of recv_timeout.
+    //
+    // Timeout is not an error: the caller loops back, checks its shutdown
+    // flags, and waits again. Without this distinction a process blocked in
+    // msgrcv can never notice that it has been asked to stop.
+    enum class RecvResult {
+        Ok,
+        Timeout,
+        Error,
+    };
+
+    // Waits up to timeout_ms for a message.
+    // On Ok, *out_len holds the number of bytes received.
+    RecvResult recv_timeout(void* out, std::size_t cap,
+                            int timeout_ms, long* out_len);
+
     bool is_open() const { return id_ >= 0; }
 
 private:
