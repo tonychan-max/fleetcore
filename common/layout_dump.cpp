@@ -64,6 +64,13 @@ int main() {
     DUMP_FIELD(LockRequest, term_no);
     end(sizeof(LockRequest));
 
+    begin("LockResponse", sizeof(LockResponse));
+    DUMP_FIELD(LockResponse, header);
+    DUMP_FIELD(LockResponse, term_no);
+    DUMP_FIELD(LockResponse, result);
+    DUMP_FIELD(LockResponse, reserved);
+    end(sizeof(LockResponse));
+
     std::printf("\nA non-zero gap means padding was inserted; "
                 "#pragma pack may not be in effect.\n");
     return 0;

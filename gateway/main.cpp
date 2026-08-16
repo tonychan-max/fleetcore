@@ -12,10 +12,33 @@
 #include <cstdio>
 #include <cstring>
 #include <unistd.h>
+#include <sys/select.h>
 
 using namespace fleetcore;
 
 namespace {
+
+// Waits until fd has data or the timeout expires.
+// Returns 1 = readable, 0 = timed out, -1 = error.
+//
+// Without this the process sits in read() indefinitely and never gets back
+// to poll_queue_once(), so uplink messages pile up unread. A System V queue
+// has no file descriptor, so it cannot be waited on here together with the
+// stream -- see ADR-0010.
+int wait_readable(int fd, int timeout_ms) {
+    fd_set rfds;
+    FD_ZERO(&rfds);
+    FD_SET(fd, &rfds);
+
+    struct timeval tv{};
+    tv.tv_sec  = timeout_ms / 1000;
+    tv.tv_usec = (timeout_ms % 1000) * 1000;
+
+    const int r = ::select(fd + 1, &rfds, nullptr, nullptr, &tv);
+    if (r < 0 && errno == EINTR) return 0;   // treat as a timeout; caller loops
+    return r;
+}
+
 
 // Reads exactly n bytes unless the stream ends first.
 // read() may return fewer bytes than asked for even when more are coming;
@@ -42,7 +65,21 @@ public:
     Gateway() : StreamProcess("gateway", IDX_GATEWAY) {}
 
 protected:
+
+    bool on_init() override {
+        register_handler(IPC_LOCK_RESPONSE,
+            [this](const void* d, std::size_t n) {
+                return on_lock_response(d, n);
+            });
+        return true;
+    }
+
     Severity on_stream_data(int fd) override {
+        // Do not block forever: come back regularly so the queue gets polled.
+        const int ready = wait_readable(fd, 100);
+        if (ready == 0) return Severity::Message;   // nothing yet, loop again
+        if (ready < 0)  return Severity::Stream;
+        
         uint8_t buf[MAX_MESSAGE_LEN];
 
         // Read the header first: its length field says how much more to
@@ -96,6 +133,28 @@ protected:
         out.msg            = req;
 
         send_to(IDX_LOCATOR, &out, sizeof(out));
+        return Severity::Message;
+    }
+
+private:
+    Severity on_lock_response(const void* data, std::size_t len) {
+        if (len != sizeof(IpcLockResponse)) {
+            log_msg(__func__, Severity::Message, "unexpected size %zu", len);
+            return Severity::Message;
+        }
+
+        IpcLockResponse m{};
+        std::memcpy(&m, data, sizeof(m));
+
+        // Step 6 packs this back onto the socket towards the maintenance
+        // terminal. For now the pipeline ends here.
+        std::printf("[%s] LOCK-ACK term_no=%.4s seq=%u result=0x%02X\n",
+                    name().c_str(),
+                    m.msg.term_no,
+                    m.msg.header.seq,
+                    m.msg.result);
+        std::fflush(stdout);
+
         return Severity::Message;
     }
 };

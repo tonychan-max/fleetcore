@@ -25,6 +25,7 @@ inline constexpr int32_t IDX_TERMD_BASE = 3000;
 // Internal message codes. Separate space from the wire codes in proto.h:
 // the two evolve independently, and a wire code is not meaningful inside.
 inline constexpr uint8_t IPC_LOCK_REQUEST = 0x01;
+inline constexpr uint8_t IPC_LOCK_RESPONSE = 0x02;
 
 struct IpcHeader {
     uint8_t code;         // one of IPC_*
@@ -34,6 +35,11 @@ struct IpcHeader {
 struct IpcLockRequest {
     IpcHeader   ipc;
     LockRequest msg;      // host byte order
+};
+
+struct IpcLockResponse {
+    IpcHeader    ipc;
+    LockResponse msg;      // host byte order
 };
 
 }  // namespace fleetcore

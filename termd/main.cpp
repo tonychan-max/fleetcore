@@ -7,6 +7,7 @@
 
 #include "common/ipc_message.h"
 #include "common/process.h"
+#include "common/wire.h"
 
 #include <charconv>
 #include <cstdio>
@@ -50,7 +51,24 @@ private:
                     m.msg.header.seq,
                     static_cast<unsigned long long>(m.msg.header.timestamp));
         std::fflush(stdout);
+       
+        // Uplink: report that the command was carried out.
+        //
+        // ARCHITECTURE section 3-6: uplink status may be dropped. If the
+        // send fails we log it and move on -- a newer status will supersede
+        // this one anyway. Downlink commands get the opposite treatment
+        // (store-and-forward, Phase 4).
+        IpcLockResponse rsp{};
+        rsp.ipc.code       = IPC_LOCK_RESPONSE;
+        rsp.ipc.dest_index = IDX_GATEWAY;
+        rsp.msg = make_lock_response(m.msg.term_no,
+                                     m.msg.header.seq,
+                                     RESULT_OK);
 
+        if (!send_to(IDX_GATEWAY, &rsp, sizeof(rsp))) {
+            log_msg(__func__, Severity::Message,
+                    "uplink dropped: gateway not running");
+        }
         return Severity::Message;   // handled
     }
 };

@@ -62,6 +62,14 @@ WireError   unpack_header(const uint8_t* buf, std::size_t len, Header& out);
 std::size_t pack_lock_request(const LockRequest& m, uint8_t* buf, std::size_t cap);
 WireError   unpack_lock_request(const uint8_t* buf, std::size_t len, LockRequest& out);
 
+// ============================================================
+// LockResponse (uplink)
+// ============================================================
+std::size_t pack_lock_response(const LockResponse& m, uint8_t* buf, std::size_t cap);
+WireError   unpack_lock_response(const uint8_t* buf, std::size_t len, LockResponse& out);
+
+LockResponse make_lock_response(const char term_no[4], uint16_t seq, uint8_t result);
+
 // Fills in magic, version, code, length and timestamp. seq is caller-supplied.
 LockRequest make_lock_request(const char term_no[4], uint16_t seq);
 
