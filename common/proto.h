@@ -45,6 +45,16 @@ inline constexpr uint8_t CODE_TEST_END     = 0xFF;
 // ============================================================
 inline constexpr uint8_t CODE_LOCK_REQUEST = 0x10;
 
+// Uplink: sent back after a lock command has been carried out.
+// Lives in the status range (0x20-0x2F), which is droppable by design --
+// see ARCHITECTURE section 3-6.
+inline constexpr uint8_t CODE_LOCK_RESPONSE = 0x20;
+
+// Result codes for LockResponse.
+inline constexpr uint8_t RESULT_OK          = 0x00;
+inline constexpr uint8_t RESULT_UNSUPPORTED = 0x01;  // terminal lacks the capability
+inline constexpr uint8_t RESULT_BUSY        = 0x02;
+
 static_assert(CODE_LOCK_REQUEST >= CODE_CTRL_BEGIN &&
               CODE_LOCK_REQUEST <= CODE_CTRL_END,
               "LockRequest must live in the control command range");
@@ -69,6 +79,13 @@ struct LockRequest {
     char   term_no[4];
 };
 
+struct LockResponse {
+    Header  header;
+    char    term_no[4];
+    uint8_t result;       // 0 = success; non-zero is a failure code
+    uint8_t reserved[3];  // explicit padding: keeps the total a multiple of 4
+};
+
 #pragma pack(pop)
 
 // ============================================================
@@ -81,5 +98,10 @@ static_assert(offsetof(Header, timestamp) == 8, "offset of timestamp");
 static_assert(sizeof(LockRequest) == 24, "LockRequest total size");
 static_assert(offsetof(LockRequest, term_no) == 20,
               "term_no must start immediately after the common header");
+
+static_assert(sizeof(LockResponse) == 28, "LockResponse total size");
+static_assert(offsetof(LockResponse, term_no) == 20,
+              "term_no must start immediately after the common header");
+static_assert(offsetof(LockResponse, result) == 24, "offset of result");
 
 }  // namespace fleetcore

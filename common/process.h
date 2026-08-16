@@ -64,6 +64,11 @@ protected:
     // Sends to another process's queue. Opens it on demand.
     bool send_to(int32_t dest_index, const void* data, std::size_t len);
 
+    // Checks the queue once without blocking. Returns true if a message was
+    // handled. Used by StreamProcess, which spends most of its time blocked
+    // on a stream and cannot wait on the queue as well.
+    bool poll_queue_once();
+
     const std::string& name() const { return name_; }
     int32_t index() const { return index_; }
 

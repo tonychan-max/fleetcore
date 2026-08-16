@@ -154,4 +154,51 @@ LockRequest make_lock_request(const char term_no[4], uint16_t seq) {
     return m;
 }
 
+// ---- LockResponse ----
+
+std::size_t pack_lock_response(const LockResponse& m, uint8_t* buf, std::size_t cap) {
+    if (cap < sizeof(LockResponse)) return 0;
+
+    std::memcpy(buf, &m, sizeof(LockResponse));
+    store_be16(buf + offsetof(Header, length),    m.header.length);
+    store_be16(buf + offsetof(Header, seq),       m.header.seq);
+    store_be64(buf + offsetof(Header, timestamp), m.header.timestamp);
+    store_be32(buf + offsetof(Header, reserved),  m.header.reserved);
+
+    return sizeof(LockResponse);
+}
+
+WireError unpack_lock_response(const uint8_t* buf, std::size_t len, LockResponse& out) {
+    Header h{};
+    const WireError e = unpack_header(buf, len, h);
+    if (e != WireError::Ok) return e;
+
+    if (h.code != CODE_LOCK_RESPONSE) return WireError::UnknownCode;
+    if (h.length != sizeof(LockResponse)) return WireError::LengthMismatch;
+    if (len < sizeof(LockResponse)) return WireError::TooShort;
+
+    std::memcpy(&out, buf, sizeof(LockResponse));
+    out.header = h;   // already byte-swapped
+    return WireError::Ok;
+}
+
+LockResponse make_lock_response(const char term_no[4], uint16_t seq, uint8_t result) {
+    using namespace std::chrono;
+    const auto now = duration_cast<milliseconds>(
+        system_clock::now().time_since_epoch()).count();
+
+    LockResponse m{};   // the {} zeroes every field, including reserved
+    m.header.magic[0]  = MAGIC0;
+    m.header.magic[1]  = MAGIC1;
+    m.header.version   = PROTO_VERSION;
+    m.header.code      = CODE_LOCK_RESPONSE;
+    m.header.length    = sizeof(LockResponse);
+    m.header.seq       = seq;
+    m.header.timestamp = static_cast<uint64_t>(now);
+    m.header.reserved  = 0;
+    std::memcpy(m.term_no, term_no, sizeof(m.term_no));
+    m.result = result;
+    return m;
+}
+
 }  // namespace fleetcore

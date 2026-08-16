@@ -97,6 +97,17 @@ bool Process::send_to(int32_t dest_index, const void* data, std::size_t len) {
     return q.send(data, len);
 }
 
+bool Process::poll_queue_once() {
+    uint8_t buf[MAX_MESSAGE_LEN];
+    long n = 0;
+
+    // Timeout 0: return immediately whether or not anything is waiting.
+    const auto r = self_queue_.recv_timeout(buf, sizeof(buf), 0, &n);
+    if (r != MsgQueue::RecvResult::Ok) return false;
+    dispatch(buf, static_cast<std::size_t>(n));
+    return true;
+}
+
 void Process::log_msg(const char* func, Severity sev, const char* fmt, ...) {
     std::fprintf(stderr, "[%s][%s][%s] ",
                  name_.c_str(), func, to_string(sev));
@@ -120,6 +131,17 @@ void Process::log_trc(const char* func, const char* fmt, ...) {
 
 int StreamProcess::run_stream(int fd) {
     while (!system_end_ && !job_end_) {
+        // Drain whatever arrived on the queue first.
+        //
+        // System V message queues have no file descriptor, so select() cannot
+        // wait on the queue and the stream together. Polling before each
+        // blocking read is the simple way out, at the cost of latency: an
+        // uplink message sits until the next downlink arrives.
+        // Step 6 replaces stdin with a socket, which does have a descriptor.
+        while (poll_queue_once()) {
+            // keep draining
+        }
+
         const Severity sev = on_stream_data(fd);
 
         if (sev == Severity::Stream) {
