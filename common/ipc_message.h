@@ -22,6 +22,9 @@ inline constexpr int32_t IDX_GATEWAY   = 1000;
 inline constexpr int32_t IDX_LOCATOR   = 2000;
 inline constexpr int32_t IDX_TERMD_BASE = 3000;
 
+// TCP port a termd listens on for its terminal: TERM_PORT_BASE + slot.
+inline constexpr uint16_t TERM_PORT_BASE = 9200;
+
 // Internal message codes. Separate space from the wire codes in proto.h:
 // the two evolve independently, and a wire code is not meaningful inside.
 inline constexpr uint8_t IPC_LOCK_REQUEST = 0x01;
