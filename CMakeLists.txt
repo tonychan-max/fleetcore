@@ -5,6 +5,13 @@ project(fleetcore
         DESCRIPTION "Contract-driven command & telemetry backbone"
         LANGUAGES CXX)
 
+# Qt generates code from headers containing Q_OBJECT; AUTOMOC runs that step.
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+find_package(Qt6 REQUIRED COMPONENTS Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Network)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -19,6 +26,8 @@ add_library(fc_common STATIC
     common/wire.cpp
     common/msgq.cpp
     common/process.cpp
+    common/stream_buffer.cpp
+    common/tcp_server.cpp
 )
 
 target_include_directories(fc_common PUBLIC
@@ -48,3 +57,11 @@ target_link_libraries(locator PRIVATE fc_common)
 
 add_executable(termd termd/main.cpp)
 target_link_libraries(termd PRIVATE fc_common)
+
+# ---- term_gui: the vehicle terminal screen ----
+add_executable(term_gui
+    term_gui/main.cpp
+    term_gui/lock_window.cpp
+    term_gui/comm_worker.cpp
+)
+target_link_libraries(term_gui PRIVATE fc_common Qt6::Widgets Qt6::Network)
