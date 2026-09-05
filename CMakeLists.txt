@@ -65,3 +65,11 @@ add_executable(term_gui
     term_gui/comm_worker.cpp
 )
 target_link_libraries(term_gui PRIVATE fc_common Qt6::Widgets Qt6::Network)
+
+# ---- maint_gui: the maintenance screen ----
+add_executable(maint_gui
+    maint_gui/main.cpp
+    maint_gui/maint_window.cpp
+    maint_gui/maint_worker.cpp
+)
+target_link_libraries(maint_gui PRIVATE fc_common Qt6::Widgets Qt6::Network)

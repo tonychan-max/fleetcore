@@ -2,6 +2,7 @@
 
 #include "common/proto.h"
 #include "common/stream_buffer.h"
+#include "common/qt_metatypes.h"
 
 #include <QObject>
 
@@ -54,6 +55,3 @@ private:
 };
 
 }  // namespace fleetcore
-
-#include <QMetaType>
-Q_DECLARE_METATYPE(fleetcore::LockRequest)

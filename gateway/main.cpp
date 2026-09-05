@@ -1,124 +1,102 @@
 // gateway -- the outward-facing process (ARCHITECTURE section 3-2: parse)
 //
-// Reads raw bytes from stdin, validates them against the wire contract, and
-// forwards a decoded struct to locator. stdin stands in for the TCP listener
-// that Step 6 will add.
+// Listens for maintenance terminals, validates whatever arrives against the
+// wire contract, and forwards decoded commands to locator. Acknowledgements
+// come back on the message queue and go out on the socket.
+//
+// Two input sources, neither allowed to block the other: the queue is
+// serviced by the base class loop, the socket from on_idle().
 
 #include "common/ipc_message.h"
 #include "common/process.h"
+#include "common/stream_buffer.h"
+#include "common/tcp_server.h"
 #include "common/wire.h"
 
-#include <cerrno>
 #include <cstdio>
 #include <cstring>
-#include <unistd.h>
-#include <sys/select.h>
 
 using namespace fleetcore;
 
 namespace {
 
-// Waits until fd has data or the timeout expires.
-// Returns 1 = readable, 0 = timed out, -1 = error.
-//
-// Without this the process sits in read() indefinitely and never gets back
-// to poll_queue_once(), so uplink messages pile up unread. A System V queue
-// has no file descriptor, so it cannot be waited on here together with the
-// stream -- see ADR-0010.
-int wait_readable(int fd, int timeout_ms) {
-    fd_set rfds;
-    FD_ZERO(&rfds);
-    FD_SET(fd, &rfds);
-
-    struct timeval tv{};
-    tv.tv_sec  = timeout_ms / 1000;
-    tv.tv_usec = (timeout_ms % 1000) * 1000;
-
-    const int r = ::select(fd + 1, &rfds, nullptr, nullptr, &tv);
-    if (r < 0 && errno == EINTR) return 0;   // treat as a timeout; caller loops
-    return r;
-}
-
-
-// Reads exactly n bytes unless the stream ends first.
-// read() may return fewer bytes than asked for even when more are coming;
-// treating a short read as "the message is short" is a classic bug.
-ssize_t read_exact(int fd, uint8_t* buf, std::size_t n) {
-    std::size_t got = 0;
-    while (got < n) {
-        const ssize_t r = ::read(fd, buf + got, n - got);
-        if (r < 0) {
-            // On Linux read() returns -1 simply because a signal arrived.
-            // Treating that as a failure would drop a message every time
-            // the process is signalled.
-            if (errno == EINTR) continue;
-            return -1;
-        }
-        if (r == 0) break;              // end of stream
-        got += static_cast<std::size_t>(r);
-    }
-    return static_cast<ssize_t>(got);
-}
-
-class Gateway : public StreamProcess {
+class Gateway : public Process {
 public:
-    Gateway() : StreamProcess("gateway", IDX_GATEWAY) {}
+    Gateway() : Process("gateway", IDX_GATEWAY) {}
 
 protected:
-
     bool on_init() override {
         register_handler(IPC_LOCK_RESPONSE,
             [this](const void* d, std::size_t n) {
                 return on_lock_response(d, n);
             });
+
+        if (!tcp_.listen(GATEWAY_PORT)) {
+            log_msg(__func__, Severity::Process,
+                    "cannot listen on %u", GATEWAY_PORT);
+            return false;
+        }
+        log_trc(__func__, "listening for maintenance terminals on port %u",
+                GATEWAY_PORT);
         return true;
     }
 
-    Severity on_stream_data(int fd) override {
-        // Do not block forever: come back regularly so the queue gets polled.
-        const int ready = wait_readable(fd, 100);
-        if (ready == 0) return Severity::Message;   // nothing yet, loop again
-        if (ready < 0)  return Severity::Stream;
-        
-        uint8_t buf[MAX_MESSAGE_LEN];
-
-        // Read the header first: its length field says how much more to
-        // read. This is exactly why the contract carries a length at all.
-        const ssize_t n = read_exact(fd, buf, sizeof(Header));
-        if (n == 0) return Severity::Stream;          // clean end of input
-        if (n < static_cast<ssize_t>(sizeof(Header))) {
-            log_msg(__func__, Severity::Stream,
-                    "%s (%zd bytes)", to_string(WireError::TooShort), n);
-            return Severity::Stream;
+    // Called whenever the queue receive times out. Everything socket-related
+    // happens here, so a quiet queue does not stall the socket and vice versa.
+    void on_idle() override {
+        if (tcp_.poll_accept()) {
+            log_trc(__func__, "maintenance terminal connected");
+            rx_.reset();
         }
 
+        uint8_t chunk[1024];
+        const long n = tcp_.poll_read(chunk, sizeof(chunk));
+        if (n < 0) {
+            log_msg(__func__, Severity::Peer, "maintenance terminal disconnected");
+            rx_.reset();
+            return;
+        }
+        if (n == 0) return;
+
+        rx_.append(chunk, static_cast<std::size_t>(n));
+
+        const uint8_t* msg = nullptr;
+        std::size_t    len = 0;
+        while (rx_.next(&msg, &len)) {
+            const Severity sev = handle_from_maint(msg, len);
+            rx_.consume(len);
+
+            // A desynchronised stream cannot be resumed by skipping ahead:
+            // there is no way to tell where the next message starts. Dropping
+            // the connection makes the terminal reconnect, which resets both
+            // ends to a known state.
+            if (sev == Severity::Stream) {
+                tcp_.drop_client();
+                rx_.reset();
+                return;
+            }
+        }
+    }
+
+private:
+    Severity handle_from_maint(const uint8_t* buf, std::size_t len) {
         Header h{};
-        WireError e = unpack_header(buf, sizeof(Header), h);
+        WireError e = unpack_header(buf, len, h);
         if (e != WireError::Ok) {
-            // The stream is out of sync; resynchronisation belongs in Step 6.
             log_msg(__func__, Severity::Stream, "%s", to_string(e));
             return Severity::Stream;
         }
 
-        const std::size_t remain = h.length - sizeof(Header);
-        if (remain > 0) {
-            const ssize_t r = read_exact(fd, buf + sizeof(Header), remain);
-            if (r < static_cast<ssize_t>(remain)) {
-                log_msg(__func__, Severity::Stream, "truncated body");
-                return Severity::Stream;
-            }
-        }
-
         if (h.code != CODE_LOCK_REQUEST) {
-            // A message we do not handle but whose length we know: skip it.
-            // Without the length field this would force a disconnect.
+            // Known length, unhandled code: skip it and carry on. Without the
+            // length field this would force a disconnect.
             log_msg(__func__, Severity::Message,
                     "code 0x%02X not handled", h.code);
             return Severity::Message;
         }
 
         LockRequest req{};
-        e = unpack_lock_request(buf, h.length, req);
+        e = unpack_lock_request(buf, len, req);
         if (e != WireError::Ok) {
             log_msg(__func__, Severity::Message, "%s", to_string(e));
             return Severity::Message;
@@ -136,7 +114,6 @@ protected:
         return Severity::Message;
     }
 
-private:
     Severity on_lock_response(const void* data, std::size_t len) {
         if (len != sizeof(IpcLockResponse)) {
             log_msg(__func__, Severity::Message, "unexpected size %zu", len);
@@ -146,17 +123,28 @@ private:
         IpcLockResponse m{};
         std::memcpy(&m, data, sizeof(m));
 
-        // Step 6 packs this back onto the socket towards the maintenance
-        // terminal. For now the pipeline ends here.
-        std::printf("[%s] LOCK-ACK term_no=%.4s seq=%u result=0x%02X\n",
-                    name().c_str(),
-                    m.msg.term_no,
-                    m.msg.header.seq,
-                    m.msg.result);
-        std::fflush(stdout);
+        log_trc(__func__, "LOCK-ACK term_no=%.4s seq=%u result=0x%02X",
+                m.msg.term_no, m.msg.header.seq, m.msg.result);
 
+        // Uplink status may be dropped (ARCHITECTURE section 3-6): if no
+        // maintenance terminal is listening, log and move on. A newer status
+        // supersedes this one anyway.
+        if (!tcp_.has_client()) {
+            log_msg(__func__, Severity::Peer,
+                    "no maintenance terminal connected");
+            return Severity::Message;
+        }
+
+        uint8_t out[MAX_MESSAGE_LEN];
+        const std::size_t n = pack_lock_response(m.msg, out, sizeof(out));
+        if (n == 0 || !tcp_.send(out, n)) {
+            log_msg(__func__, Severity::Peer, "send to maintenance terminal failed");
+        }
         return Severity::Message;
     }
+
+    TcpServer    tcp_;
+    StreamBuffer rx_;
 };
 
 }  // namespace
@@ -164,5 +152,5 @@ private:
 int main() {
     Gateway p;
     if (!p.init()) return 1;
-    return p.run_stream(STDIN_FILENO);
+    return p.run();
 }
