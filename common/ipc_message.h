@@ -22,6 +22,10 @@ inline constexpr int32_t IDX_GATEWAY   = 1000;
 inline constexpr int32_t IDX_LOCATOR   = 2000;
 inline constexpr int32_t IDX_TERMD_BASE = 3000;
 
+// TCP port the gateway listens on for maintenance terminals.
+// See docs/CONFIG.md: listen_port.
+inline constexpr uint16_t GATEWAY_PORT = 9100;
+
 // TCP port a termd listens on for its terminal: TERM_PORT_BASE + slot.
 inline constexpr uint16_t TERM_PORT_BASE = 9200;
 

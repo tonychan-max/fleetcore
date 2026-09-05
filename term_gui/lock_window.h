@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common/proto.h"
+#include "common/qt_metatypes.h"
 
 #include <QWidget>
 
