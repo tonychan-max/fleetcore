@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      # Keep going when one compiler fails, so all results show at once
+      # rather than one per push.
+      fail-fast: false
+      matrix:
+        include:
+          - name: GCC
+            cc: gcc
+            cxx: g++
+          - name: Clang
+            cc: clang
+            cxx: clang++
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qt6-base-dev
+
+      - name: Configure
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build
+
+      # The layout dump is the machine-readable form of the wire contract.
+      # Storing it lets the next step compare compilers against each other.
+      - name: Dump wire layout
+        run: ./build/layout_dump | tee layout-${{ matrix.cc }}.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: layout-${{ matrix.cc }}
+          path: layout-${{ matrix.cc }}.txt
+
+  # ADR-0008 assumes struct layout is identical across compilers, because
+  # pack/unpack copies whole structs and trusts the layout to match the wire.
+  # #pragma pack is a compiler extension, not standard C++, so that
+  # assumption is worth testing rather than believing.
+  compare-layout:
+    name: Layouts agree across compilers
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: layouts
+
+      - name: Compare
+        run: |
+          diff layouts/layout-gcc/layout-gcc.txt \
+               layouts/layout-clang/layout-clang.txt \
+            && echo "layouts match"
