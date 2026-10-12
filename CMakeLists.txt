@@ -28,6 +28,7 @@ add_library(fc_common STATIC
     common/process.cpp
     common/stream_buffer.cpp
     common/tcp_server.cpp
+    common/log.cpp
 )
 
 target_include_directories(fc_common PUBLIC

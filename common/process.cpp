@@ -2,10 +2,12 @@
 
 #include "common/ipc_message.h"
 #include "common/proto.h"
+#include "common/log.h"
 
 #include <cstdarg>
 #include <cstdio>
 #include <utility>
+#include <ctime>
 
 namespace fleetcore {
 
@@ -109,6 +111,7 @@ bool Process::poll_queue_once() {
 }
 
 void Process::log_msg(const char* func, Severity sev, const char* fmt, ...) {
+    log_timestamp();
     std::fprintf(stderr, "[%s][%s][%s] ",
                  name_.c_str(), func, to_string(sev));
     va_list args;
@@ -119,6 +122,7 @@ void Process::log_msg(const char* func, Severity sev, const char* fmt, ...) {
 }
 
 void Process::log_trc(const char* func, const char* fmt, ...) {
+    log_timestamp();
     std::fprintf(stderr, "[%s][%s] ", name_.c_str(), func);
     va_list args;
     va_start(args, fmt);

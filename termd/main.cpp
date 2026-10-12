@@ -53,6 +53,7 @@ protected:
     void on_idle() override {
         if (tcp_.poll_accept()) {
             log_trc(__func__, "terminal connected");
+            rx_.reset();
         }
 
         uint8_t chunk[1024];
