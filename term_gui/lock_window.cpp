@@ -3,6 +3,7 @@
 #include <QDateTime>
 #include <QLabel>
 #include <QVBoxLayout>
+#include <QPushButton>
 
 namespace fleetcore {
 
@@ -19,6 +20,10 @@ LockWindow::LockWindow(QWidget* parent) : QWidget(parent) {
     link_label_ = new QLabel(this);
     link_label_->setAlignment(Qt::AlignCenter);
 
+    unlock_button_ = new QPushButton("UNLOCK", this);
+    unlock_button_->setMinimumHeight(40);
+    connect(unlock_button_, &QPushButton::clicked,this, &LockWindow::onUnlockPressed);
+    
     // A layout positions the widgets and resizes them with the window.
     // Fixed coordinates would break the moment the screen size changes,
     // and vehicle terminals come in several sizes.
@@ -28,6 +33,7 @@ LockWindow::LockWindow(QWidget* parent) : QWidget(parent) {
     layout->addWidget(detail_label_);
     layout->addStretch();
     layout->addWidget(link_label_);
+    layout->addWidget(unlock_button_);
 
     applyUnlockedStyle();
     onLinkStateChanged(false);
@@ -71,6 +77,13 @@ void LockWindow::applyUnlockedStyle() {
     state_label_->setStyleSheet("color: #888; font-size: 72px;");
     detail_label_->setText("waiting for a command");
     detail_label_->setStyleSheet("color: #666; font-size: 18px;");
+}
+
+// Local only: this does not tell the server anything. Step 4 adds
+// authentication here, at which point unlocking becomes a real operation
+// with a credential check and an uplink notification.
+void LockWindow::onUnlockPressed() {
+    applyUnlockedStyle();
 }
 
 }  // namespace fleetcore

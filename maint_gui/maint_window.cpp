@@ -1,4 +1,5 @@
 #include "maint_gui/maint_window.h"
+#include "common/log.h"
 
 #include <QComboBox>
 #include <QDateTime>
@@ -61,6 +62,9 @@ void MaintWindow::onLinkStateChanged(bool connected) {
 }
 
 void MaintWindow::onLogLine(const QString& text) {
+    log_timestamp();
+    std::fprintf(stderr, "[maint] %s\n", text.toStdString().c_str());
+
     log_view_->appendPlainText(
         QDateTime::currentDateTime().toString("HH:mm:ss.zzz") + "  " + text);
 }

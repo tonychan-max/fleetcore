@@ -1,6 +1,7 @@
 #include "term_gui/comm_worker.h"
 
 #include "common/wire.h"
+#include "common/log.h"
 
 #include <QTcpSocket>
 #include <QTimer>
@@ -41,18 +42,21 @@ void CommWorker::stop() {
 void CommWorker::tryReconnect() {
     if (!socket_ || socket_->state() != QAbstractSocket::UnconnectedState) return;
 
+    log_timestamp();
     std::fprintf(stderr, "[comm] connecting to %s:%u\n",
                  host_.toStdString().c_str(), port_);
     socket_->connectToHost(host_, port_);
 }
 
 void CommWorker::onConnected() {
+    log_timestamp();
     std::fprintf(stderr, "[comm] connected\n");
     rx_.reset();
     emit linkStateChanged(true);
 }
 
 void CommWorker::onDisconnected() {
+    log_timestamp();
     std::fprintf(stderr, "[comm] disconnected\n");
     rx_.reset();
     emit linkStateChanged(false);
@@ -79,6 +83,7 @@ void CommWorker::handleMessage(const uint8_t* buf, std::size_t len) {
     Header h{};
     const WireError e = unpack_header(buf, len, h);
     if (e != WireError::Ok) {
+        log_timestamp();
         std::fprintf(stderr, "[comm] STREAM %s -- dropping connection\n",
                      to_string(e));
         rx_.reset();
@@ -87,6 +92,7 @@ void CommWorker::handleMessage(const uint8_t* buf, std::size_t len) {
     }
 
     if (h.code != CODE_LOCK_REQUEST) {
+        log_timestamp();
         // Known length, unknown code: skip it. Without the length field this
         // would force a disconnect.
         std::fprintf(stderr, "[comm] MESSAGE code 0x%02X not handled\n", h.code);
@@ -96,6 +102,7 @@ void CommWorker::handleMessage(const uint8_t* buf, std::size_t len) {
     LockRequest req{};
     const WireError e2 = unpack_lock_request(buf, len, req);
     if (e2 != WireError::Ok) {
+        log_timestamp();
         std::fprintf(stderr, "[comm] MESSAGE %s\n", to_string(e2));
         return;
     }

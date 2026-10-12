@@ -5,6 +5,7 @@
 #include <QWidget>
 
 class QLabel;
+class QPushButton;
 
 namespace fleetcore {
 
@@ -32,6 +33,8 @@ public slots:
     // Called when the link to termd goes up or down.
     void onLinkStateChanged(bool connected);
 
+    void onUnlockPressed();
+
 private:
     void applyLockedStyle();
     void applyUnlockedStyle();
@@ -39,6 +42,7 @@ private:
     QLabel* state_label_  = nullptr;   // LOCKED / UNLOCKED
     QLabel* detail_label_ = nullptr;   // terminal number, sequence, time
     QLabel* link_label_   = nullptr;   // connection status
+    QPushButton* unlock_button_ = nullptr;
 };
 
 }  // namespace fleetcore
