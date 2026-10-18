@@ -41,6 +41,9 @@ jobs:
       - name: Build
         run: cmake --build build
 
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
       # The layout dump is the machine-readable form of the wire contract.
       # Storing it lets the next step compare compilers against each other.
       - name: Dump wire layout

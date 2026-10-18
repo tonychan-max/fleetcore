@@ -74,3 +74,28 @@ add_executable(maint_gui
     maint_gui/maint_worker.cpp
 )
 target_link_libraries(maint_gui PRIVATE fc_common Qt6::Widgets Qt6::Network)
+
+# ---- tests ----
+#
+# GoogleTest is fetched at configure time rather than vendored or required
+# as a system package: a clone of this repository builds its tests with no
+# extra setup, which is the same reason CI does not need a special runner.
+include(FetchContent)
+
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        v1.15.2
+)
+FetchContent_MakeAvailable(googletest)
+
+enable_testing()
+
+add_executable(fc_tests
+    tests/test_wire.cpp
+    tests/test_stream_buffer.cpp
+)
+target_link_libraries(fc_tests PRIVATE fc_common GTest::gtest_main)
+
+include(GoogleTest)
+gtest_discover_tests(fc_tests)
