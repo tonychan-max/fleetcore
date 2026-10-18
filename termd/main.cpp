@@ -13,6 +13,7 @@
 #include "common/wire.h"
 #include "common/stream_buffer.h"
 #include "common/tcp_server.h"
+#include "common/shm_table.h"
 
 #include <charconv>
 #include <cstdio>
@@ -44,6 +45,16 @@ protected:
         }
         log_trc(__func__, "listening for terminal on port %u", port);
 
+        // Register before any terminal has connected. The row exists from
+        // the moment termd starts, which is what lets locator route a
+        // command to a terminal that is currently out of coverage.
+        if (!table_.open() || !table_.register_terminal(term_no())) {
+            log_msg(__func__, Severity::Process,
+                    "cannot register terminal %u in the table", term_no());
+            return false;
+        }
+        log_trc(__func__, "registered terminal %u", term_no());
+
         return true;
     }
 
@@ -54,6 +65,10 @@ protected:
         if (tcp_.poll_accept()) {
             log_trc(__func__, "terminal connected");
             rx_.reset();
+            // Capabilities are hard-coded for now. ARCHITECTURE section 5
+            // says the terminal should declare them on connect; that needs a
+            // handshake message, which comes with the next protocol change.
+            table_.set_state(term_no(), TERM_STATE_CONNECTED, CAP_LOCK);
         }
 
         uint8_t chunk[1024];
@@ -61,6 +76,7 @@ protected:
         if (n < 0) {
             log_msg(__func__, Severity::Peer, "terminal disconnected");
             rx_.reset();
+            table_.set_state(term_no(), TERM_STATE_DISCONNECTED, 0);
             return;
         }
         if (n == 0) return;
@@ -93,6 +109,11 @@ private:
     TcpServer    tcp_;
     StreamBuffer rx_;
     int32_t      slot_ = 0;
+    ShmTable table_;
+    // The terminal number this process serves, as stored in the table.
+    // term_no on the wire is 4 ASCII characters; the table stores it as a
+    // number so lookups do not depend on string comparison.
+    uint32_t term_no() const { return 1000u + static_cast<uint32_t>(slot_); }
 
     Severity on_lock_request(const void* data, std::size_t len) {
         if (len != sizeof(IpcLockRequest)) {

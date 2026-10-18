@@ -5,6 +5,7 @@
 // docs/ARCHITECTURE.md, and only then update the static_assert values.
 
 #include "common/proto.h"
+#include "common/shm_table.h"
 
 #include <cstddef>
 #include <cstdio>
@@ -70,6 +71,14 @@ int main() {
     DUMP_FIELD(LockResponse, result);
     DUMP_FIELD(LockResponse, reserved);
     end(sizeof(LockResponse));
+
+    begin("TermEntry", sizeof(TermEntry));
+    DUMP_FIELD(TermEntry, term_no);
+    DUMP_FIELD(TermEntry, capabilities);
+    DUMP_FIELD(TermEntry, state);
+    DUMP_FIELD(TermEntry, reserved);
+    DUMP_FIELD(TermEntry, last_seen);
+    end(sizeof(TermEntry));
 
     std::printf("\nA non-zero gap means padding was inserted; "
                 "#pragma pack may not be in effect.\n");
