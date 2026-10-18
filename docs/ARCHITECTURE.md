@@ -272,7 +272,7 @@ fleetcore/
 |---|---|---|
 | 1 | プロトコル定義 + `static_assert` + CMake | 完了 |
 | 2 | CLI で骨幹貫通（gateway → locator → termd） | 完了 |
-| 3 | 共有メモリ + セマフォ（端末テーブル） | **未着手**（locator はハードコード表） |
+| 3 | 共有メモリ + セマフォ（端末テーブル） | 完了 |
 | 4 | SQLite 認証 | 未着手 |
 | 5 | `term_gui`（Qt6 ロック画面） | 完了（解除認証は Step 4 待ち） |
 | 6 | `maint_gui`（Qt6 保守画面） | 完了 |
@@ -304,3 +304,4 @@ fleetcore/
 | [0007](decisions/0007-msgq-per-process.md) | メッセージキューをプロセスごとに1本持つ | 採用 |
 | [0008](decisions/0008-memcpy-based-pack-unpack.md) | pack/unpack は一括 memcpy + 項目単位変換 | 採用 |
 | [0009](decisions/0009-error-handling-style.md) | エラー処理は二層構成 | 採用 |
+| [0014](decisions/0014-terminal-table-in-shared-memory.md) | 端末テーブルを共有メモリに置く | 採用 |

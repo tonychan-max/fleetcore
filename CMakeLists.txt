@@ -29,6 +29,7 @@ add_library(fc_common STATIC
     common/stream_buffer.cpp
     common/tcp_server.cpp
     common/log.cpp
+    common/shm_table.cpp
 )
 
 target_include_directories(fc_common PUBLIC
@@ -48,6 +49,10 @@ target_link_libraries(layout_dump PRIVATE fc_common)
 # ---- msggen: produces a real byte stream for testing ----
 add_executable(msggen tools/msggen/main.cpp)
 target_link_libraries(msggen PRIVATE fc_common)
+
+# ---- hold_lock: holds the table semaphore until killed (SEM_UNDO test) ----
+add_executable(hold_lock tools/hold_lock/main.cpp)
+target_link_libraries(hold_lock PRIVATE fc_common)
 
 # ---- business processes (ARCHITECTURE section 3-2) ----
 add_executable(gateway gateway/main.cpp)

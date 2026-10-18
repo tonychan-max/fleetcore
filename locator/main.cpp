@@ -7,6 +7,7 @@
 
 #include "common/ipc_message.h"
 #include "common/process.h"
+#include "common/shm_table.h"
 
 #include <cstdio>
 #include <cstring>
@@ -15,23 +16,16 @@ using namespace fleetcore;
 
 namespace {
 
-struct TermMapping {
-    const char* term_no;   // 4 ASCII characters
-    int32_t     index;
-};
-
-// TODO(Step 3): replace with the shared-memory terminal table.
-constexpr TermMapping TABLE[] = {
-    { "1001", IDX_TERMD_BASE + 1 },
-    { "1002", IDX_TERMD_BASE + 2 },
-};
-
 class Locator : public Process {
 public:
     Locator() : Process("locator", IDX_LOCATOR) {}
 
 protected:
     bool on_init() override {
+        if (!table_.open()) {
+            log_msg(__func__, Severity::Process, "cannot open terminal table");
+            return false;
+        }
         register_handler(IPC_LOCK_REQUEST,
             [this](const void* d, std::size_t n) {
                 return on_lock_request(d, n);
@@ -40,11 +34,25 @@ protected:
     }
 
 private:
-    static int32_t resolve(const char term_no[4]) {
-        for (const auto& m : TABLE) {
-            if (std::memcmp(m.term_no, term_no, 4) == 0) return m.index;
+    ShmTable table_;
+    // Resolves a terminal number to the termd that serves it.
+    //
+    // Returns 0 for a terminal that is not registered at all. A registered
+    // terminal that is currently disconnected still resolves: its termd is
+    // running and can receive the command. Whether to deliver or hold it is
+    // termd's decision, not locator's.
+    int32_t resolve(const char term_no_ascii[4]) const {
+        uint32_t n = 0;
+        for (int i = 0; i < 4; ++i) {
+            const char c = term_no_ascii[i];
+            if (c < '0' || c > '9') return 0;
+            n = n * 10 + static_cast<uint32_t>(c - '0');
         }
-        return 0;
+
+        TermEntry e{};
+        if (!table_.find(n, e)) return 0;
+
+        return IDX_TERMD_BASE + static_cast<int32_t>(n - 1000);
     }
 
     Severity on_lock_request(const void* data, std::size_t len) {
